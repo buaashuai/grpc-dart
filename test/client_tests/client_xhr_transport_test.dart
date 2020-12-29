@@ -19,7 +19,7 @@ import 'dart:async';
 import 'dart:html';
 
 import 'package:grpc/src/client/call.dart';
-import 'package:grpc/src/client/transport/xhr_transport.dart';
+import 'package:grpc/src/client/transport/browser_xhr_transport.dart';
 import 'package:grpc/src/shared/message.dart';
 import 'package:mockito/mockito.dart';
 
