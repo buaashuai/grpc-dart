@@ -17,8 +17,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:meta/meta.dart';
-
 import '../../client/call.dart';
 import '../../shared/message.dart';
 import '../../shared/status.dart';
@@ -30,18 +28,13 @@ import 'web_streams.dart';
 const _contentTypeKey = 'Content-Type';
 
 /// All accepted content-type header's prefix.
-const _validContentTypePrefix = [
-  'application/grpc',
-  'application/json+protobuf',
-  'application/x-protobuf'
-];
+const _validContentTypePrefix = ['application/grpc', 'application/json+protobuf', 'application/x-protobuf'];
 
 class XhrTransportStream implements GrpcTransportStream {
   final Future<HttpClientRequest> _request;
   final Map<String, String> _metadata;
   final ErrorHandler _onError;
   final Function(XhrTransportStream stream) _onDone;
-  int _requestBytesRead = 0;
   final StreamController<ByteBuffer> _incomingProcessor = StreamController();
   final StreamController<GrpcMessage> _incomingMessages = StreamController();
   final StreamController<List<int>> _outgoingMessages = StreamController();
@@ -52,95 +45,60 @@ class XhrTransportStream implements GrpcTransportStream {
   @override
   StreamSink<List<int>> get outgoingMessages => _outgoingMessages.sink;
 
-  XhrTransportStream(this._request, this._metadata,  {onError, onDone})
+  XhrTransportStream(this._request, this._metadata, {onError, onDone})
       : _onError = onError,
         _onDone = onDone {
-    _outgoingMessages.stream
-        .map(frame)
-        .listen((data) => _request.send(data), cancelOnError: true);
-
-    _request.onReadyStateChange.listen((data) {
-      if (_incomingProcessor.isClosed) {
-        return;
+    _request.then((HttpClientRequest request) {
+      for (final entry in _metadata.entries) {
+        request.headers.add(entry.key, entry.value);
       }
-      switch (_request.readyState) {
-        case HttpRequest.HEADERS_RECEIVED:
-          _onHeadersReceived();
-          break;
-        case HttpRequest.DONE:
-          if (_request.status != 200) {
-            _onError(
-                GrpcError.unavailable(
-                    'XhrConnection status ${_request.status}'),
-                StackTrace.current);
+
+      _outgoingMessages.stream.map(frame).listen((data) => request.add(data), cancelOnError: true, onDone: () {
+        request.close().then((HttpClientResponse response) {
+          if (response.statusCode == 200) {
+            final contentType = response.headers.contentType.value;
+
+            if (contentType == null) {
+              _onError(GrpcError.unavailable('XhrConnection missing Content-Type'), StackTrace.current);
+              return;
+            }
+            if (!_checkContentType(contentType)) {
+              _onError(GrpcError.unavailable('XhrConnection bad Content-Type $contentType'), StackTrace.current);
+              return;
+            }
+
+            final Map<String, String> httpHeaders = {};
+            response.headers.forEach((name, values) {
+              httpHeaders[name] = values.join(',');
+            });
+
+            final headers = GrpcMetadata(httpHeaders);
+            _incomingMessages.add(headers);
+
+            response.listen((buffer) {
+              _incomingProcessor.add(Int8List.fromList(buffer).buffer);
+            }, onError: () {
+              _onError(GrpcError.unavailable('XhrConnection connection-error'), StackTrace.current);
+              terminate();
+            }, onDone: () {
+              _incomingProcessor.close();
+            });
           } else {
-            _close();
+            _onError(GrpcError.unavailable('XhrConnection status ${response.statusCode}'), StackTrace.current);
+            terminate();
           }
-          break;
-      }
-    });
-
-    _request.onError.listen((ProgressEvent event) {
-      if (_incomingProcessor.isClosed) {
-        return;
-      }
-      _onError(GrpcError.unavailable('XhrConnection connection-error'),
-          StackTrace.current);
-      terminate();
-    });
-
-    _request.onProgress.listen((_) {
-      if (_incomingProcessor.isClosed) {
-        return;
-      }
-      // Use response over responseText as most browsers don't support
-      // using responseText during an onProgress event.
-      final responseString = _request.response as String;
-      final bytes = Uint8List.fromList(
-              responseString.substring(_requestBytesRead).codeUnits)
-          .buffer;
-      _requestBytesRead = responseString.length;
-      _incomingProcessor.add(bytes);
+        });
+      });
     });
 
     _incomingProcessor.stream
         .transform(GrpcWebDecoder())
         .transform(grpcDecompressor())
-        .listen(_incomingMessages.add,
-            onError: _onError, onDone: _incomingMessages.close);
+        .listen(_incomingMessages.add, onError: _onError, onDone: _incomingMessages.close);
   }
 
   bool _checkContentType(String contentType) {
     return _validContentTypePrefix.any(contentType.startsWith);
-  }
-
-  _onHeadersReceived() {
-    final contentType = _request.getResponseHeader(_contentTypeKey);
-    if (_request.status != 200) {
-      _onError(GrpcError.unavailable('XhrConnection status ${_request.status}'),
-          StackTrace.current);
-      return;
-    }
-    if (contentType == null) {
-      _onError(GrpcError.unavailable('XhrConnection missing Content-Type'),
-          StackTrace.current);
-      return;
-    }
-    if (!_checkContentType(contentType)) {
-      _onError(
-          GrpcError.unavailable('XhrConnection bad Content-Type $contentType'),
-          StackTrace.current);
-      return;
-    }
-    if (_request.response == null) {
-      _onError(GrpcError.unavailable('XhrConnection request null response'),
-          StackTrace.current);
-      return;
-    }
-
-    // Force a metadata message with headers.
-    final headers = GrpcMetadata(_request.responseHeaders);
-    _incomingMessages.add(headers);
   }
 
   _close() {
@@ -152,24 +110,23 @@ class XhrTransportStream implements GrpcTransportStream {
   @override
   Future<void> terminate() async {
     _close();
-    _request.abort();
+    // _request.abort();
   }
 }
 
 class XhrClientConnection extends ClientConnection {
   final Uri uri;
+  final HttpClient client;
 
   final _requests = <XhrTransportStream>{};
 
-  XhrClientConnection(this.uri);
+  XhrClientConnection(this.uri) : client = HttpClient();
 
   String get authority => uri.authority;
   String get scheme => uri.scheme;
 
   @override
-  GrpcTransportStream makeRequest(String path, Duration timeout,
-      Map<String, String> metadata, ErrorHandler onError,
-      {CallOptions callOptions}) {
+  GrpcTransportStream makeRequest(String path, Duration timeout, Map<String, String> metadata, ErrorHandler onError, {CallOptions callOptions}) {
     // gRPC-web headers.
     if (_getContentTypeHeader(metadata) == null) {
       metadata['Content-Type'] = 'application/grpc-web+proto';
@@ -178,21 +135,12 @@ class XhrClientConnection extends ClientConnection {
     }
 
     var requestUri = uri.resolve(path);
-    if (callOptions is WebCallOptions &&
-        callOptions.bypassCorsPreflight == true) {
+    if (callOptions is WebCallOptions && callOptions.bypassCorsPreflight == true) {
       requestUri = cors.moveHttpHeadersToQueryParam(metadata, requestUri);
     }
 
-    final HttpRequest request = createHttpRequest();
-    request.open('POST', requestUri.toString());
-    if (callOptions is WebCallOptions && callOptions.withCredentials == true) {
-      request.withCredentials = true;
-    }
-    // Must set headers after calling open().
-    _initializeRequest(request, metadata);
-
-    final XhrTransportStream transportStream =
-        XhrTransportStream(request, onError: onError, onDone: _removeStream);
+    final Future<HttpClientRequest> request = client.postUrl(requestUri);
+    final XhrTransportStream transportStream = XhrTransportStream(request, metadata, onError: onError, onDone: _removeStream);
     _requests.add(transportStream);
     return transportStream;
   }
