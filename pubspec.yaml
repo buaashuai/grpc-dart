@@ -15,7 +15,7 @@ dependencies:
   fixnum: ^0.10.11
   googleapis_auth: ^0.2.7
   meta: ^1.1.6
-  http: ^0.12.0
+  http: ^0.13.0
   http2: ^1.0.0
   protobuf: ^1.0.1
 
