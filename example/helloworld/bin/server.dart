@@ -18,9 +18,21 @@ import 'package:grpc/grpc.dart';
 import 'package:helloworld/src/generated/helloworld.pb.dart';
 import 'package:helloworld/src/generated/helloworld.pbgrpc.dart';
 
+
 class GreeterService extends GreeterServiceBase {
+  int num = 0;
   @override
   Future<HelloReply> sayHello(ServiceCall call, HelloRequest request) async {
+    if(num <=1) {
+      num++;
+      print('${DateTime.now().toLocal()} 延迟调用 5');
+      await Future.delayed(Duration(seconds: 5));
+    } else {
+      print('${DateTime.now().toLocal()} 延迟调用 2');
+      await Future.delayed(Duration(seconds: 2));
+    }
+    //   await Future.delayed(Duration(seconds: 2));
+    print('${DateTime.now().toLocal()} 返回结果');
     return HelloReply()..message = 'Hello, ${request.name}!';
   }
 }

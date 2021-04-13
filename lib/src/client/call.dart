@@ -58,12 +58,14 @@ class CallOptions {
   final Duration timeout;
   final List<MetadataProvider> metadataProviders;
   final Codec compression;
+  final int retryNum;
 
   CallOptions._(
     this.metadata,
     this.timeout,
     this.metadataProviders,
     this.compression,
+    this.retryNum,
   );
 
   /// Creates a [CallOptions] object.
@@ -77,12 +79,14 @@ class CallOptions {
     Duration timeout,
     List<MetadataProvider> providers,
     Codec compression,
+    int retryNum,
   }) {
     return CallOptions._(
       Map.unmodifiable(metadata ?? {}),
       timeout,
       List.unmodifiable(providers ?? []),
       compression,
+      retryNum,
     );
   }
 
@@ -93,14 +97,15 @@ class CallOptions {
     if (other == null) return this;
     final mergedMetadata = Map.from(metadata)..addAll(other.metadata);
     final mergedTimeout = other.timeout ?? timeout;
-    final mergedProviders = List.from(metadataProviders)
-      ..addAll(other.metadataProviders);
+    final mergedRetryNum = other.retryNum ?? retryNum;
+    final mergedProviders = List.from(metadataProviders)..addAll(other.metadataProviders);
     final mergedCompression = other.compression ?? compression;
     return CallOptions._(
       Map.unmodifiable(mergedMetadata),
       mergedTimeout,
       List.unmodifiable(mergedProviders),
       mergedCompression,
+      mergedRetryNum,
     );
   }
 }
@@ -125,10 +130,9 @@ class WebCallOptions extends CallOptions {
   final bool withCredentials;
   // TODO(mightyvoice): add a list of extra QueryParameter for gRPC.
 
-  WebCallOptions._(Map<String, String> metadata, Duration timeout,
-      List<MetadataProvider> metadataProviders,
+  WebCallOptions._(Map<String, String> metadata, Duration timeout, List<MetadataProvider> metadataProviders, int retryNum,
       {this.bypassCorsPreflight, this.withCredentials})
-      : super._(metadata, timeout, metadataProviders, null);
+      : super._(metadata, timeout, metadataProviders, null, retryNum);
 
   /// Creates a [WebCallOptions] object.
   ///
@@ -136,15 +140,9 @@ class WebCallOptions extends CallOptions {
   /// metadata [providers] of [CallOptions], [bypassCorsPreflight] and
   /// [withCredentials] for CORS request.
   factory WebCallOptions(
-      {Map<String, String> metadata,
-      Duration timeout,
-      List<MetadataProvider> providers,
-      bool bypassCorsPreflight,
-      bool withCredentials}) {
-    return WebCallOptions._(Map.unmodifiable(metadata ?? {}), timeout,
-        List.unmodifiable(providers ?? []),
-        bypassCorsPreflight: bypassCorsPreflight ?? false,
-        withCredentials: withCredentials ?? false);
+      {Map<String, String> metadata, Duration timeout, List<MetadataProvider> providers, bool bypassCorsPreflight, bool withCredentials, int retryNum}) {
+    return WebCallOptions._(Map.unmodifiable(metadata ?? {}), timeout, List.unmodifiable(providers ?? []), retryNum,
+        bypassCorsPreflight: bypassCorsPreflight ?? false, withCredentials: withCredentials ?? false);
   }
 
   @override
@@ -153,25 +151,19 @@ class WebCallOptions extends CallOptions {
 
     final mergedMetadata = Map.from(metadata)..addAll(other.metadata);
     final mergedTimeout = other.timeout ?? timeout;
-    final mergedProviders = List.from(metadataProviders)
-      ..addAll(other.metadataProviders);
+    final mergedRetryNum = other.retryNum ?? retryNum;
+    final mergedProviders = List.from(metadataProviders)..addAll(other.metadataProviders);
 
     if (other is! WebCallOptions) {
-      return WebCallOptions._(Map.unmodifiable(mergedMetadata), mergedTimeout,
-          List.unmodifiable(mergedProviders),
-          bypassCorsPreflight: bypassCorsPreflight,
-          withCredentials: withCredentials);
+      return WebCallOptions._(Map.unmodifiable(mergedMetadata), mergedTimeout, List.unmodifiable(mergedProviders), mergedRetryNum,
+          bypassCorsPreflight: bypassCorsPreflight, withCredentials: withCredentials);
     }
 
     final otherOptions = other as WebCallOptions;
-    final mergedBypassCorsPreflight =
-        otherOptions.bypassCorsPreflight ?? bypassCorsPreflight;
-    final mergedWithCredentials =
-        otherOptions.withCredentials ?? withCredentials;
-    return WebCallOptions._(Map.unmodifiable(mergedMetadata), mergedTimeout,
-        List.unmodifiable(mergedProviders),
-        bypassCorsPreflight: mergedBypassCorsPreflight,
-        withCredentials: mergedWithCredentials);
+    final mergedBypassCorsPreflight = otherOptions.bypassCorsPreflight ?? bypassCorsPreflight;
+    final mergedWithCredentials = otherOptions.withCredentials ?? withCredentials;
+    return WebCallOptions._(Map.unmodifiable(mergedMetadata), mergedTimeout, List.unmodifiable(mergedProviders), mergedRetryNum,
+        bypassCorsPreflight: mergedBypassCorsPreflight, withCredentials: mergedWithCredentials);
   }
 }
 
@@ -211,7 +203,7 @@ class ClientCall<Q, R> implements Response {
   }
 
   void onConnectionError(error) {
-    _terminateWithError(GrpcError.unavailable('Error connecting: $error'));
+      _terminateWithError(GrpcError.unavailable('Error connecting: $error'));
   }
 
   void _terminateWithError(GrpcError error) {

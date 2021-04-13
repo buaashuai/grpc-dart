@@ -37,8 +37,7 @@ abstract class ClientChannel {
   Future<void> terminate();
 
   /// Initiates a new RPC on this connection.
-  ClientCall<Q, R> createCall<Q, R>(
-      ClientMethod<Q, R> method, Stream<Q> requests, CallOptions options);
+  ClientCall<Q, R> createCall<Q, R>(ClientMethod<Q, R> method, Stream<Q> requests, CallOptions options);
 }
 
 /// Auxiliary base class implementing much of ClientChannel.
@@ -68,22 +67,20 @@ abstract class ClientChannelBase implements ClientChannel {
   /// Returns a connection to this [Channel]'s RPC endpoint.
   ///
   /// The connection may be shared between multiple RPCs.
-  Future<ClientConnection> getConnection() async {
+  Future<ClientConnection> getConnection({int retryNum = 0}) async {
     if (_isShutdown) throw GrpcError.unavailable('Channel shutting down.');
-    return _connection ??= createConnection();
+    if (retryNum == 0) {
+      return _connection ??= createConnection();
+    } else {
+      return createConnection();
+    }
   }
 
   @override
-  ClientCall<Q, R> createCall<Q, R>(
-      ClientMethod<Q, R> method, Stream<Q> requests, CallOptions options) {
-    final call = ClientCall(
-        method,
-        requests,
-        options,
-        isTimelineLoggingEnabled
-            ? timelineTaskFactory(filterKey: clientTimelineFilterKey)
-            : null);
-    getConnection().then((connection) {
+  ClientCall<Q, R> createCall<Q, R>(ClientMethod<Q, R> method, Stream<Q> requests, CallOptions options) {
+    final int retryNum = options.retryNum ?? 0;
+    final call = ClientCall(method, requests, options, isTimelineLoggingEnabled ? timelineTaskFactory(filterKey: clientTimelineFilterKey) : null);
+    getConnection(retryNum: retryNum).then((connection) {
       if (call.isCancelled) return;
       connection.dispatchCall(call);
     }, onError: call.onConnectionError);
