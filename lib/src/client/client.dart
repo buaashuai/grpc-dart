@@ -67,8 +67,8 @@ regenerate these stubs using  protobuf compiler plugin version 19.2.0 or newer.
   }
 
   ResponseFuture<R> $createUnaryCall<Q, R>(ClientMethod<Q, R> method, Q request, {CallOptions options}) {
-    final int retryNum = options.retryNum ?? 0;
-    log('调用接口: ${method.path}');
+    final int retryNum = options?.retryNum ?? 0;
+    // log('调用接口: ${method.path}');
     return ResponseFuture(FakeClientCall<dynamic, R>($createUnaryCallRetry(method, request, retryNum, options: options)));
   }
 
@@ -82,17 +82,17 @@ regenerate these stubs using  protobuf compiler plugin version 19.2.0 or newer.
     }
     result = invoker(method, request, _options.mergedWith(options));
     result.then((value) {
-      log('结束调用');
+      // log('结束调用');
       receivedThree.complete(value);
     }, onError: (error) {
       if (retryNum > 0) {
-        log('准备重试 $retryNum');
+        // log('准备重试 $retryNum');
         Future.delayed(Duration(milliseconds: 1000), () {
-          log('重试 $retryNum');
+          // log('重试 $retryNum');
           receivedThree.complete($createUnaryCallRetry(method, request, retryNum - 1, options: options));
         });
       } else {
-        log('出错结束调用');
+        // log('出错结束调用');
         receivedThree.completeError(error);
       }
     });

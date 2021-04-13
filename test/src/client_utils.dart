@@ -79,7 +79,7 @@ class FakeChannel extends ClientChannel {
       : super(host, options: options);
 
   @override
-  Future<Http2ClientConnection> getConnection() async => connection;
+  Future<Http2ClientConnection> getConnection({int retryNum = 0}) async => connection;
 }
 
 class FakeClientConnectorChannel extends ClientTransportConnectorChannel {
@@ -91,7 +91,7 @@ class FakeClientConnectorChannel extends ClientTransportConnectorChannel {
       : super(connector, options: options);
 
   @override
-  Future<Http2ClientConnection> getConnection() async => connection;
+  Future<Http2ClientConnection> getConnection({int retryNum = 0}) async => connection;
 }
 
 typedef ServerMessageHandler = void Function(StreamMessage message);

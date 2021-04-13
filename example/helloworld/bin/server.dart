@@ -25,14 +25,14 @@ class GreeterService extends GreeterServiceBase {
   Future<HelloReply> sayHello(ServiceCall call, HelloRequest request) async {
     if(num <=1) {
       num++;
-      print('${DateTime.now().toLocal()} 延迟调用 5');
+      // print('${DateTime.now().toLocal()} 延迟调用 5');
       await Future.delayed(Duration(seconds: 5));
     } else {
-      print('${DateTime.now().toLocal()} 延迟调用 2');
+      // print('${DateTime.now().toLocal()} 延迟调用 2');
       await Future.delayed(Duration(seconds: 2));
     }
     //   await Future.delayed(Duration(seconds: 2));
-    print('${DateTime.now().toLocal()} 返回结果');
+    print('${DateTime.now().toLocal()} response');
     return HelloReply()..message = 'Hello, ${request.name}!';
   }
 }
