@@ -28,14 +28,14 @@ Future<void> main(List<String> args) async {
       codecRegistry: CodecRegistry(codecs: const [GzipCodec(), IdentityCodec()]),
     ),
   );
-  final stub = GreeterClient(channel);
+  final stub = GreeterClient(channel, options: CallOptions(timeout: Duration(seconds: 3), retryNum: 3));
 
   final name = args.isNotEmpty ? args[0] : 'world';
 
   try {
     final response = await stub.sayHello(
       HelloRequest()..name = name,
-      options: CallOptions(compression: const GzipCodec(), timeout: Duration(seconds: 3), retryNum: 3),
+      options: CallOptions(compression: const GzipCodec(), retryNum: 2),
     );
     print('收到调用结果: ${response.message}');
   } catch (e) {

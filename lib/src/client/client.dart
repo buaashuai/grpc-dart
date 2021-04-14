@@ -67,8 +67,13 @@ regenerate these stubs using  protobuf compiler plugin version 19.2.0 or newer.
   }
 
   ResponseFuture<R> $createUnaryCall<Q, R>(ClientMethod<Q, R> method, Q request, {CallOptions options}) {
+    if (options != null) {
+      options = _options.mergedWith(options);
+    } else {
+      options = _options;
+    }
     final int retryNum = options?.retryNum ?? 0;
-    // log('调用接口: ${method.path}');
+    // log('调用接口: ${method.path}, retryNum=$retryNum');
     return ResponseFuture(FakeClientCall<dynamic, R>($createUnaryCallRetry(method, request, retryNum, options: options)));
   }
 
