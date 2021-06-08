@@ -52,7 +52,7 @@ class Client {
   final ClientChannel _channel;
   final CallOptions _options;
   final List<ClientInterceptor> _interceptors;
-  bool retryNumEnable;
+  bool _retryNumEnable;
 
   /// Interceptors will be applied in direct order before making a request.
   Client(this._channel, {CallOptions options, Iterable<ClientInterceptor> interceptors})
@@ -76,7 +76,7 @@ regenerate these stubs using  protobuf compiler plugin version 19.2.0 or newer.
       options = _options;
     }
     final int retryNum = options?.retryNum ?? 0;
-    retryNumEnable = false;
+    _retryNumEnable = false;
     // log('调用接口: ${method.path}, retryNum=$retryNum');
     return ResponseFuture(FakeClientCall<dynamic, R>($createUnaryCallRetry(method, request, retryNum, options: options)));
   }
@@ -92,14 +92,14 @@ regenerate these stubs using  protobuf compiler plugin version 19.2.0 or newer.
     result = invoker(method, request, _options.mergedWith(options));
     result.then((value) {
       // log('结束调用');
-      if (retryNumEnable) {
+      if (_retryNumEnable) {
         ++GRPC_RETRY_SUCCESS_NUM;
       }
       receivedThree.complete(value);
     }, onError: (error) {
       if (retryNum > 0) {
         // log('准备重试 $retryNum');
-        retryNumEnable = true;
+        _retryNumEnable = true;
         Future.delayed(Duration(milliseconds: 1000), () {
           // log('重试 $retryNum');
           receivedThree.complete($createUnaryCallRetry(method, request, retryNum - 1, options: options));
