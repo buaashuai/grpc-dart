@@ -16,7 +16,7 @@ abstract class ClientInterceptor {
   // Intercept unary call.
   // This method is called when client sends single request and receives single response.
   ResponseFuture<R> interceptUnary<Q, R>(ClientMethod<Q, R> method, Q request,
-      CallOptions options, ClientUnaryInvoker<Q, R> invoker) {
+      CallOptions options, ClientUnaryInvoker<Q, R> invoker, bool canCaptureError) {
     return invoker(method, request, options);
   }
 

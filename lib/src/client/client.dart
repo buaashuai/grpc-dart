@@ -45,11 +45,14 @@ void log(String msg) {
   print('${DateTime.now().toLocal()} $msg');
 }
 
+int GRPC_RETRY_SUCCESS_NUM = 0;
+
 /// Base class for client stubs.
 class Client {
   final ClientChannel _channel;
   final CallOptions _options;
   final List<ClientInterceptor> _interceptors;
+  bool retryNumEnable;
 
   /// Interceptors will be applied in direct order before making a request.
   Client(this._channel, {CallOptions options, Iterable<ClientInterceptor> interceptors})
@@ -73,6 +76,7 @@ regenerate these stubs using  protobuf compiler plugin version 19.2.0 or newer.
       options = _options;
     }
     final int retryNum = options?.retryNum ?? 0;
+    retryNumEnable = false;
     // log('调用接口: ${method.path}, retryNum=$retryNum');
     return ResponseFuture(FakeClientCall<dynamic, R>($createUnaryCallRetry(method, request, retryNum, options: options)));
   }
@@ -83,15 +87,19 @@ regenerate these stubs using  protobuf compiler plugin version 19.2.0 or newer.
     ClientUnaryInvoker<Q, R> invoker = (method, request, options) => ResponseFuture<R>(_channel.createCall<Q, R>(method, Stream.value(request), options));
     for (final interceptor in _interceptors.reversed) {
       final delegate = invoker;
-      invoker = (method, request, options) => interceptor.interceptUnary<Q, R>(method, request, options, delegate);
+      invoker = (method, request, options) => interceptor.interceptUnary<Q, R>(method, request, options, delegate, retryNum < 1);
     }
     result = invoker(method, request, _options.mergedWith(options));
     result.then((value) {
       // log('结束调用');
+      if (retryNumEnable) {
+        ++GRPC_RETRY_SUCCESS_NUM;
+      }
       receivedThree.complete(value);
     }, onError: (error) {
       if (retryNum > 0) {
         // log('准备重试 $retryNum');
+        retryNumEnable = true;
         Future.delayed(Duration(milliseconds: 1000), () {
           // log('重试 $retryNum');
           receivedThree.complete($createUnaryCallRetry(method, request, retryNum - 1, options: options));

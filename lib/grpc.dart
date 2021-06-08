@@ -24,7 +24,7 @@ export 'src/auth/auth_io.dart'
         ComputeEngineAuthenticator,
         ServiceAccountAuthenticator;
 export 'src/client/call.dart' show CallOptions, ClientCall, MetadataProvider;
-export 'src/client/client.dart' show Client;
+export 'src/client/client.dart' show Client, GRPC_RETRY_SUCCESS_NUM;
 export 'src/client/client_transport_connector.dart'
     show ClientTransportConnector;
 export 'src/client/common.dart' show Response, ResponseStream, ResponseFuture;
